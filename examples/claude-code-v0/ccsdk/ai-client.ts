@@ -51,6 +51,17 @@ export class AIClient {
       // appendSystemPrompt: AGENT_PROMPT,
       systemPrompt: AGENT_PROMPT,
       mcpServers: {
+        "n8n-mcp": {
+          command: "npx",
+          args: ["n8n-mcp"],
+          env: {
+            MCP_MODE: "stdio",
+            LOG_LEVEL: "error",
+            DISABLE_CONSOLE_OUTPUT: "true",
+            N8N_API_URL: process.env.N8N_API_URL || "http://localhost:5678/",
+            N8N_API_KEY: process.env.N8N_API_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxZTdkNzA0MS04NDc1LTRkMzAtYmFhZS00NjkyMDlmY2MwZTQiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYxMjA3OTAzfQ.MOsZqs4udjGgmf3mhF8zew-9M281lu4o_2zsA7WgG1A",
+          }
+        }
       },
       hooks: {
         PreToolUse: [
@@ -119,7 +130,27 @@ export class AIClient {
 
     const mergedOptions = { ...this.defaultOptions, ...options };
 
-    console.log("AIClient queryStream options:", mergedOptions);
+    console.log("=== AIClient queryStream 完整配置 ===");
+    console.log("maxTurns:", mergedOptions.maxTurns);
+    console.log("cwd:", mergedOptions.cwd);
+    console.log("model:", mergedOptions.model);
+    console.log("allowedTools:", mergedOptions.allowedTools);
+    console.log("\n--- mcpServers 配置 ---");
+    console.log(JSON.stringify(mergedOptions.mcpServers, null, 2));
+    console.log("\n--- hooks 配置结构 ---");
+    console.log("hooks keys:", Object.keys(mergedOptions.hooks || {}));
+    if (mergedOptions.hooks?.PreToolUse) {
+      console.log("PreToolUse hooks count:", mergedOptions.hooks.PreToolUse.length);
+      mergedOptions.hooks.PreToolUse.forEach((hook: any, index: number) => {
+        console.log(`  Hook ${index}:`, {
+          matcher: hook.matcher,
+          hooksCount: hook.hooks?.length || 0
+        });
+      });
+    }
+    console.log("\n--- systemPrompt (前200字符) ---");
+    console.log(mergedOptions.systemPrompt?.substring(0, 200) + "...");
+    console.log("=====================================\n");
 
     const promptSource = this.resolvePrompt(prompt);
 

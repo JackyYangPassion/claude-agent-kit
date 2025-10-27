@@ -7,11 +7,13 @@ import type {
   ChatSessionState,
   RawMessageEvent,
   UserMessageEvent,
+  WorkflowInfo,
 } from "../shared/types/messages";
 import { type AttachmentPayload } from "../shared/types/messages";
 import { composeUserContent, generateMessageId, processIncomingMessage } from "./messages";
 import { ensureSessionWorkspace } from "./utils/session-workspace";
 import { isWorkspaceFileAllowed, readWorkspaceFiles } from "./utils/workspace-files";
+import { WorkflowService } from "./workflow-service";
 
 export class Session {
   public readonly id: string;
@@ -26,11 +28,13 @@ export class Session {
   private workspacePath: string | null = null;
   private workspaceNotificationTimeout: NodeJS.Timeout | null = null;
   private pendingWorkspaceChanges: Set<string> = new Set();
+  private workflowService: WorkflowService;
 
   constructor(id: string) {
     this.id = id;
     this.messageQueue = new MessageQueue();
     this.aiClient = new AIClient(this.id);
+    this.workflowService = new WorkflowService();
     this.state = createInitialSessionState();
   }
 
@@ -126,7 +130,57 @@ export class Session {
 
   private handleIncomingEvent(event: RawMessageEvent) {
     this.state = processIncomingMessage(this.state, event);
+    
+    // 检测并提取工作流信息
+    this.extractAndBroadcastWorkflowInfo(event);
+    
     this.broadcastSessionUpdate(event);
+  }
+
+  private extractAndBroadcastWorkflowInfo(event: RawMessageEvent) {
+    try {
+      // 检查是否是 assistant 消息，并且包含工具使用结果
+      if (event.type === "assistant" && event.message?.content) {
+        const content = event.message.content;
+        
+        for (const block of content) {
+          // 检查工具结果块
+          if (block.type === "tool_result" && !block.is_error) {
+            const workflow = this.workflowService.extractWorkflowFromToolResult(block);
+            
+            if (workflow) {
+              console.log(`[Session ${this.id}] Workflow detected:`, workflow.id);
+              
+              // 添加到 session state
+              if (!this.state.workflows) {
+                this.state.workflows = [];
+              }
+              
+              // 检查是否已存在
+              const existingIndex = this.state.workflows.findIndex(w => w.id === workflow.id);
+              if (existingIndex >= 0) {
+                this.state.workflows[existingIndex] = workflow;
+              } else {
+                this.state.workflows.push(workflow);
+              }
+              
+              // 广播工作流创建事件
+              this.broadcastWorkflowCreated(workflow);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`[Session ${this.id}] Error extracting workflow info:`, error);
+    }
+  }
+
+  private broadcastWorkflowCreated(workflow: WorkflowInfo) {
+    const message = this.workflowService.createWorkflowStatusMessage(workflow);
+    this.broadcast({
+      ...message,
+      sessionId: this.id,
+    });
   }
 
   private broadcastSessionUpdate(event?: RawMessageEvent) {

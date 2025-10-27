@@ -17,6 +17,7 @@ import { ChatInput } from "./chat/chat-input";
 import type { ImageAttachment } from "@/components/ai-elements/prompt-input";
 import { ResizableLayout } from "./resizable-layout";
 import { PreviewPanel } from "./chat/preview-panel";
+import { WorkflowList } from "./workflow/workflow-list";
 
 interface ChatInterfaceProps {
   isConnected: boolean;
@@ -191,6 +192,12 @@ export function ChatInterface({
                   ) : (
                     <div className="space-y-2">
                       <MessageRenderer messages={messages} />
+                      
+                      {/* 工作流展示区域 */}
+                      {sessionState.workflows && sessionState.workflows.length > 0 && (
+                        <WorkflowList workflows={sessionState.workflows} />
+                      )}
+                      
                       {isLoading && (
                         <div className="mt-2 flex h-7 items-center">
                           <div className="flex items-center">

@@ -71,6 +71,40 @@ export interface SearchResultBlock {
   }>;
 }
 
+// Workflow related types (defined early for ContentBlock)
+export interface WorkflowNode {
+  id: string;
+  type: string;
+  name: string;
+  parameters: Record<string, any>;
+  position?: [number, number];
+}
+
+export interface WorkflowConnection {
+  source: string;
+  target: string;
+  sourceOutput?: string;
+  targetInput?: string;
+}
+
+export interface WorkflowInfo {
+  id: string;
+  name: string;
+  description?: string;
+  url: string;
+  active: boolean;
+  nodes: WorkflowNode[];
+  connections?: WorkflowConnection[];
+  createdAt: string;
+  updatedAt?: string;
+  tags?: string[];
+}
+
+export interface WorkflowBlock {
+  type: "workflow";
+  workflow: WorkflowInfo;
+}
+
 export type ContentBlock =
   | TextBlock
   | ImageBlock
@@ -79,7 +113,8 @@ export type ContentBlock =
   | ThinkingRedactedBlock
   | ToolUseBlock
   | ToolResultBlock
-  | SearchResultBlock;
+  | SearchResultBlock
+  | WorkflowBlock;
 
 export interface MessageUsage {
   input_tokens: number;
@@ -214,4 +249,5 @@ export interface ChatSessionState {
   sessionId?: string;
   currentModel?: string;
   lastError?: string;
+  workflows?: WorkflowInfo[];
 }
