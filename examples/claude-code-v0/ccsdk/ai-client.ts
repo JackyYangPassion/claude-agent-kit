@@ -47,6 +47,9 @@ export class AIClient {
       allowedTools: [
         "Task", "Bash", "Glob", "Grep", "LS", "ExitPlanMode", "Read", "Edit", "MultiEdit", "Write", "NotebookEdit",
         "WebFetch", "TodoWrite", "WebSearch", "BashOutput", "KillBash",
+        "mcp__n8n-mcp__search_nodes","mcp__n8n-mcp__get_node_details",
+        "mcp__n8n-mcp__create_workflow","mcp__n8n-mcp__update_workflow",
+        "mcp__n8n-mcp__list_workflows","mcp__n8n-mcp__n8n_create_workflow",
       ],
       // appendSystemPrompt: AGENT_PROMPT,
       systemPrompt: AGENT_PROMPT,
