@@ -13,9 +13,9 @@ export function WorkflowList({ workflows }: WorkflowListProps) {
 
   return (
     <div className="my-4">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4 px-2">
         <span className="text-xl">⚡</span>
-        <h3 className="text-sm font-semibold text-gray-700">
+        <h3 className="text-sm font-semibold text-gray-300">
           自动化工作流 ({workflows.length})
         </h3>
       </div>

@@ -17,7 +17,6 @@ import { ChatInput } from "./chat/chat-input";
 import type { ImageAttachment } from "@/components/ai-elements/prompt-input";
 import { ResizableLayout } from "./resizable-layout";
 import { PreviewPanel } from "./chat/preview-panel";
-import { WorkflowList } from "./workflow/workflow-list";
 
 interface ChatInterfaceProps {
   isConnected: boolean;
@@ -183,16 +182,6 @@ export function ChatInterface({
             <div className="flex flex-col h-full">
               <div className="flex-1 overflow-y-auto p-3">
                 <div className="max-w-5xl mx-auto">
-                  {/* 工作流展示区域 - 置顶显示 */}
-                  {(() => {
-                    console.log('[ChatInterface] Checking workflows:', sessionState.workflows?.length || 0);
-                    return sessionState.workflows && sessionState.workflows.length > 0;
-                  })() && (
-                    <div className="mb-4 sticky top-0 z-10 bg-white/95 backdrop-blur-sm rounded-lg shadow-sm">
-                      <WorkflowList workflows={sessionState.workflows} />
-                    </div>
-                  )}
-                  
                   {messages.length === 0 ? (
                     <div className="text-center text-gray-400 mt-12">
                       <p className="text-sm uppercase tracking-wider">
@@ -239,6 +228,7 @@ export function ChatInterface({
               lastPrompt={lastUserPrompt}
               onRefresh={onRequestWorkspaceSync}
               disabledRefresh={!sessionId || !isConnected}
+              workflows={sessionState.workflows || []}
             />
           }
         />
