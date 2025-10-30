@@ -1,14 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
 import type { WorkflowInfo } from "../../../shared/types/messages";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../ui/collapsible";
+import { WorkflowPreview } from "./workflow-preview";
+import { ChevronDown, ChevronUp, Eye } from "lucide-react";
 
 interface WorkflowCardProps {
   workflow: WorkflowInfo;
 }
 
 export function WorkflowCard({ workflow }: WorkflowCardProps) {
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
   const handleOpenInN8n = () => {
     window.open(workflow.url, "_blank", "noopener,noreferrer");
   };
@@ -59,6 +64,40 @@ export function WorkflowCard({ workflow }: WorkflowCardProps) {
           </div>
         )}
       </div>
+
+      {/* 工作流可视化预览区域 */}
+      {workflow.nodes.length > 0 && (
+        <Collapsible open={isPreviewOpen} onOpenChange={setIsPreviewOpen} className="mb-3">
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full mb-2 flex items-center justify-center gap-2 hover:bg-blue-100"
+            >
+              {isPreviewOpen ? (
+                <>
+                  <ChevronUp className="w-4 h-4" />
+                  <span>隐藏预览</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  <span>预览工作流</span>
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 animate-in slide-in-from-top-2">
+              <WorkflowPreview 
+                workflow={workflow} 
+                width={600} 
+                height={Math.max(250, workflow.nodes.length * 100)} 
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       <div className="flex gap-2">
         <Button

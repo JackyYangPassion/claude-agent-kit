@@ -143,36 +143,96 @@ export class Session {
       if (event.type === "assistant" && event.message?.content) {
         const content = event.message.content;
         
+        console.log(`[Session ${this.id}] ========== Checking workflow info ==========`);
+        console.log(`[Session ${this.id}] Content blocks: ${content.length}`);
+        
         for (const block of content) {
-          // 检查工具结果块
-          if (block.type === "tool_result" && !block.is_error) {
-            const workflow = this.workflowService.extractWorkflowFromToolResult(block);
+          console.log(`[Session ${this.id}] Block type: ${block.type}`);
+          
+          // 检查工具使用块
+          if (block.type === "tool_use") {
+            console.log(`[Session ${this.id}] Found tool_use: ${block.name}`);
+          }
+          
+          // 检查文本块，尝试从中提取工作流 URL
+          if (block.type === "text") {
+            const textContent = block.text;
+            console.log(`[Session ${this.id}] Text block length: ${textContent?.length || 0}`);
             
-            if (workflow) {
-              console.log(`[Session ${this.id}] Workflow detected:`, workflow.id);
+            // 尝试从文本中提取工作流 ID
+            const workflowId = this.workflowService.extractWorkflowIdFromText(textContent);
+            if (workflowId) {
+              console.log(`[Session ${this.id}] ✅ Workflow ID extracted from text:`, workflowId);
+              // 异步获取完整的工作流信息
+              this.fetchAndAddWorkflow(workflowId);
+            }
+          }
+          
+          // 检查工具结果块
+          if (block.type === "tool_result") {
+            console.log(`[Session ${this.id}] Found tool_result, is_error: ${block.is_error}`);
+            if (!block.is_error) {
+              const workflow = this.workflowService.extractWorkflowFromToolResult(block);
               
-              // 添加到 session state
-              if (!this.state.workflows) {
-                this.state.workflows = [];
-              }
-              
-              // 检查是否已存在
-              const existingIndex = this.state.workflows.findIndex(w => w.id === workflow.id);
-              if (existingIndex >= 0) {
-                this.state.workflows[existingIndex] = workflow;
+              if (workflow) {
+                console.log(`[Session ${this.id}] ✅ Workflow detected from tool_result:`, workflow.id, workflow.name);
+                console.log(`[Session ${this.id}] Workflow nodes:`, workflow.nodes.length);
+                this.addWorkflowToState(workflow);
               } else {
-                this.state.workflows.push(workflow);
+                console.log(`[Session ${this.id}] ⚠️  No workflow extracted from tool_result`);
+                // 打印 tool_result 内容以便调试
+                try {
+                  console.log(`[Session ${this.id}] Tool result content:`, JSON.stringify(block).substring(0, 500));
+                } catch (e) {
+                  console.log(`[Session ${this.id}] Could not stringify tool result`);
+                }
               }
-              
-              // 广播工作流创建事件
-              this.broadcastWorkflowCreated(workflow);
             }
           }
         }
+        console.log(`[Session ${this.id}] ========== End checking workflow info ==========`);
       }
     } catch (error) {
-      console.error(`[Session ${this.id}] Error extracting workflow info:`, error);
+      console.error(`[Session ${this.id}] ❌ Error extracting workflow info:`, error);
     }
+  }
+
+  private async fetchAndAddWorkflow(workflowId: string) {
+    try {
+      console.log(`[Session ${this.id}] Fetching workflow details for: ${workflowId}`);
+      const workflow = await this.workflowService.fetchWorkflowDetails(workflowId);
+      
+      if (workflow) {
+        console.log(`[Session ${this.id}] ✅ Fetched workflow with ${workflow.nodes.length} nodes`);
+        this.addWorkflowToState(workflow);
+      } else {
+        console.log(`[Session ${this.id}] ⚠️  Failed to fetch workflow details`);
+      }
+    } catch (error) {
+      console.error(`[Session ${this.id}] Error fetching workflow:`, error);
+    }
+  }
+
+  private addWorkflowToState(workflow: WorkflowInfo) {
+    // 添加到 session state
+    if (!this.state.workflows) {
+      this.state.workflows = [];
+    }
+    
+    // 检查是否已存在
+    const existingIndex = this.state.workflows.findIndex(w => w.id === workflow.id);
+    if (existingIndex >= 0) {
+      this.state.workflows[existingIndex] = workflow;
+      console.log(`[Session ${this.id}] Updated existing workflow`);
+    } else {
+      this.state.workflows.push(workflow);
+      console.log(`[Session ${this.id}] Added new workflow, total: ${this.state.workflows.length}`);
+    }
+    
+    // 广播工作流创建事件
+    this.broadcastWorkflowCreated(workflow);
+    // 广播会话更新
+    this.broadcastSessionUpdate();
   }
 
   private broadcastWorkflowCreated(workflow: WorkflowInfo) {
@@ -417,11 +477,14 @@ function createInitialSessionState(): ChatSessionState {
 }
 
 function sanitizeSessionStateForTransport(state: ChatSessionState): ChatSessionState {
-  return {
+  console.log('[sanitizeSessionStateForTransport] Input workflows:', state.workflows?.length || 0);
+  const sanitized = {
     ...state,
     messages: state.messages.map((message) => ({
       ...message,
       raw: undefined,
     })),
   };
+  console.log('[sanitizeSessionStateForTransport] Output workflows:', sanitized.workflows?.length || 0);
+  return sanitized;
 }

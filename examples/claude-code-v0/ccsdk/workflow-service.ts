@@ -11,9 +11,50 @@ import type { WorkflowInfo, WorkflowNode } from "../shared/types/messages";
  */
 export class WorkflowService {
   private n8nBaseUrl: string;
+  private n8nApiKey: string;
 
   constructor() {
     this.n8nBaseUrl = process.env.N8N_API_URL || "http://localhost:5678";
+    this.n8nApiKey = process.env.N8N_API_KEY || "";
+  }
+
+  /**
+   * 从 n8n API 获取工作流的完整信息
+   */
+  async fetchWorkflowDetails(workflowId: string): Promise<WorkflowInfo | null> {
+    try {
+      const apiUrl = this.n8nBaseUrl.replace(/\/$/, "") + `/api/v1/workflows/${workflowId}`;
+      console.log(`[WorkflowService] Fetching workflow details from: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'X-N8N-API-KEY': this.n8nApiKey,
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`[WorkflowService] Failed to fetch workflow: ${response.status} ${response.statusText}`);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log(`[WorkflowService] Fetched workflow data:`, data);
+
+      return {
+        id: data.id,
+        name: data.name || "Workflow",
+        description: data.settings?.description || "",
+        url: this.getWorkflowUrl(data.id),
+        active: data.active ?? false,
+        nodes: this.parseNodes(data.nodes || []),
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt,
+        tags: data.tags,
+      };
+    } catch (error) {
+      console.error(`[WorkflowService] Error fetching workflow details:`, error);
+      return null;
+    }
   }
 
   /**
@@ -74,6 +115,39 @@ export class WorkflowService {
   }
 
   /**
+   * 从 AI 的文本响应中提取工作流信息
+   * 解析 AI 返回的工作流 URL 和 ID
+   * 返回工作流 ID，后续会调用 API 获取完整信息
+   */
+  extractWorkflowIdFromText(text: string): string | null {
+    if (!text) {
+      return null;
+    }
+
+    try {
+      // 尝试匹配工作流 URL: http://localhost:5678/workflow/{id}
+      const urlMatch = text.match(/http:\/\/localhost:5678\/workflow\/([a-zA-Z0-9-]+)/);
+      if (urlMatch) {
+        const workflowId = urlMatch[1];
+        console.log('[WorkflowService] Found workflow URL in text, ID:', workflowId);
+        return workflowId;
+      }
+
+      // 尝试匹配工作流 ID
+      const idMatch = text.match(/workflow[_\s]+id[:\s]*['"]?([a-zA-Z0-9-]+)['"]?/i);
+      if (idMatch) {
+        const workflowId = idMatch[1];
+        console.log('[WorkflowService] Found workflow ID in text:', workflowId);
+        return workflowId;
+      }
+    } catch (error) {
+      console.error('[WorkflowService] Error extracting workflow from text:', error);
+    }
+
+    return null;
+  }
+
+  /**
    * 从消息内容中检测并提取工作流信息
    * 当 AI 使用 n8n MCP 工具时，工具结果可能包含工作流信息
    */
@@ -89,15 +163,20 @@ export class WorkflowService {
         return null;
       }
 
+      console.log('[WorkflowService] Extracting workflow from tool result:', JSON.stringify(content).substring(0, 200));
+
       // 尝试解析 JSON 内容
       let workflowData: any;
       if (typeof content === "string") {
         try {
           workflowData = JSON.parse(content);
+          console.log('[WorkflowService] Parsed JSON workflow data:', workflowData);
         } catch {
           // 可能包含工作流 ID 的文本
+          console.log('[WorkflowService] Content is text, searching for workflow ID...');
           const idMatch = content.match(/workflow[_\s]*id[:\s]*['"]?([a-zA-Z0-9-]+)['"]?/i);
           if (idMatch) {
+            console.log('[WorkflowService] Found workflow ID:', idMatch[1]);
             return {
               id: idMatch[1],
               name: "Workflow",
@@ -111,6 +190,7 @@ export class WorkflowService {
         }
       } else {
         workflowData = content;
+        console.log('[WorkflowService] Content is object:', workflowData);
       }
 
       // 提取工作流信息
