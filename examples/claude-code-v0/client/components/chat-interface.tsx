@@ -191,6 +191,7 @@ export function ChatInterface({
                   ) : (
                     <div className="space-y-2">
                       <MessageRenderer messages={messages} />
+                      
                       {isLoading && (
                         <div className="mt-2 flex h-7 items-center">
                           <div className="flex items-center">
@@ -227,6 +228,7 @@ export function ChatInterface({
               lastPrompt={lastUserPrompt}
               onRefresh={onRequestWorkspaceSync}
               disabledRefresh={!sessionId || !isConnected}
+              workflows={sessionState.workflows || []}
             />
           }
         />

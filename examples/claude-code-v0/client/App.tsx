@@ -105,6 +105,10 @@ const App: React.FC = () => {
             setSessionId(message.sessionId);
           }
           if (message.state) {
+            console.log('[App] Received session state, workflows:', message.state.workflows?.length || 0);
+            if (message.state.workflows && message.state.workflows.length > 0) {
+              console.log('[App] Workflows data:', message.state.workflows);
+            }
             setSessionState(message.state as ChatSessionState);
           }
           break;
